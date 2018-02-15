@@ -127,11 +127,14 @@ struct mfii_pkt {
 };
 
 struct mfii_iop {
+	int			num_sge_loc;
+	uint16_t		ldio_ctx_reg_lock_flags;
 	uint8_t			ldio_req_type;
 	uint8_t			ldio_ctx_type_nseg;
-	uint8_t			ldio_ctx_reg_lock_flags;
 	uint8_t			sge_flag_chain;
 	uint8_t			sge_flag_eol;
+#define MFII_IOP_NUM_SGE_LOC_ORIG	0
+#define MFII_IOP_NUM_SGE_LOC_35		1
 };
 
 struct mfii_pd_tgt {
@@ -407,20 +410,31 @@ static const ddi_dma_attr_t mfii_io_attr = {
 };
 
 const struct mfii_iop mfii_iop_thunderbolt = {
+	MFII_IOP_NUM_SGE_LOC_ORIG,
+	0,
 	MFII_REQ_TYPE_LDIO,
 	0,
-	0,
 	MFII_SGE_CHAIN_ELEMENT | MFII_SGE_ADDR_IOCPLBNTA,
-	0
+	0,
 };
 
 /*
  * a lot of these values depend on us not implementing fastpath yet.
  */
 const struct mfii_iop mfii_iop_25 = {
+	MFII_IOP_NUM_SGE_LOC_ORIG,
+	MFII_RAID_CTX_ROUTING_FLAGS_CPU0, /* MFII_RAID_CTX_ROUTING_FLAGS_SQN */
 	MFII_REQ_TYPE_NO_LOCK,
 	MFII_RAID_CTX_TYPE_CUDA | 0x1,
-	MFII_RAID_CTX_RL_FLAGS_CPU0, /* | MFII_RAID_CTX_RL_FLAGS_SEQNO_EN */
+	MFII_SGE_CHAIN_ELEMENT,
+	MFII_SGE_END_OF_LIST
+};
+
+const struct mfii_iop mfii_iop_35 = {
+	MFII_IOP_NUM_SGE_LOC_35,
+	MFII_RAID_CTX_ROUTING_FLAGS_CPU0, /* | MFII_RAID_CTX_ROUTING_FLAGS_SQN */
+	MFII_REQ_TYPE_NO_LOCK,
+	MFII_RAID_CTX_TYPE_CUDA | 0x1,
 	MFII_SGE_CHAIN_ELEMENT,
 	MFII_SGE_END_OF_LIST
 };
@@ -978,6 +992,14 @@ mfii_pci_cfg(struct mfii_softc *sc)
 	case MFII_PCI_ID_3008:
 	case MFII_PCI_ID_3108:
 		sc->sc_iop = &mfii_iop_25;
+		break;
+	case MFII_PCI_ID_3404:
+	case MFII_PCI_ID_3504:
+	case MFII_PCI_ID_3408:
+	case MFII_PCI_ID_3508:
+	case MFII_PCI_ID_3416:
+	case MFII_PCI_ID_3516:
+		sc->sc_iop = &mfii_iop_35;
 		break;
 	default:
 		dev_err(sc->sc_dev, CE_WARN, "unknown chip 0x%08x", id);
@@ -2116,9 +2138,19 @@ mfii_ld_io(struct mfii_softc *sc, struct scsi_address *ap,
 
 	ctx->type_nseg = sc->sc_iop->ldio_ctx_type_nseg;
 	ctx->timeout_value = LE_16(pkt->pkt_time);
-	ctx->reg_lock_flags = sc->sc_iop->ldio_ctx_reg_lock_flags;
+	ctx->reg_lock_flags = LE_16(sc->sc_iop->ldio_ctx_reg_lock_flags);
 	ctx->virtual_disk_target_id = LE_16(ap->a_target);
+
 	ctx->num_sge = pkt->pkt_numcookies;
+	switch (sc->sc_iop->num_sge_loc) {
+	case MFII_IOP_NUM_SGE_LOC_ORIG:
+		ctx->num_sge = pkt->pkt_numcookies;
+		break;
+	case MFII_IOP_NUM_SGE_LOC_35:
+		/* 12 bit field, but we're only using the lower 8 */
+		ctx->span_arm = pkt->pkt_numcookies;
+		break;
+	}
 
 	memset(&ccb->ccb_req, 0, sizeof(ccb->ccb_req));
 	ccb->ccb_req.flags = sc->sc_iop->ldio_req_type;

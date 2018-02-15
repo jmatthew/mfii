@@ -25,12 +25,24 @@
 #define MFII_PCI_DEV_2208	0x005b
 #define MFII_PCI_DEV_3108	0x005d
 #define MFII_PCI_DEV_3008	0x005f
+#define MFII_PCI_DEV_3404	0x001c
+#define MFII_PCI_DEV_3504	0x001b
+#define MFII_PCI_DEV_3408	0x0017
+#define MFII_PCI_DEV_3508	0x0016
+#define MFII_PCI_DEV_3416	0x0015
+#define MFII_PCI_DEV_3516	0x0014
 
 #define PCI_ID(_v, _p)		((_v) | ((_p) << 16))
 
 #define MFII_PCI_ID_2208	PCI_ID(MFII_PCI_VEN_LSI, MFII_PCI_DEV_2208)
 #define MFII_PCI_ID_3108	PCI_ID(MFII_PCI_VEN_LSI, MFII_PCI_DEV_3108)
 #define MFII_PCI_ID_3008	PCI_ID(MFII_PCI_VEN_LSI, MFII_PCI_DEV_3008)
+#define MFII_PCI_ID_3404	PCI_ID(MFII_PCI_VEN_LSI, MFII_PCI_DEV_3404)
+#define MFII_PCI_ID_3504	PCI_ID(MFII_PCI_VEN_LSI, MFII_PCI_DEV_3504)
+#define MFII_PCI_ID_3408	PCI_ID(MFII_PCI_VEN_LSI, MFII_PCI_DEV_3408)
+#define MFII_PCI_ID_3508	PCI_ID(MFII_PCI_VEN_LSI, MFII_PCI_DEV_3508)
+#define MFII_PCI_ID_3416	PCI_ID(MFII_PCI_VEN_LSI, MFII_PCI_DEV_3416)
+#define MFII_PCI_ID_3516	PCI_ID(MFII_PCI_VEN_LSI, MFII_PCI_DEV_3516)
 
 #define MFII_PCI_BAR		PCI_CONF_BASE1
 
@@ -67,12 +79,15 @@ struct mfii_raid_context {
 	uint8_t		_reserved1;
 	uint16_t	timeout_value;
 
-	uint8_t		reg_lock_flags;
+	uint16_t	reg_lock_flags;
 #define MFII_RAID_CTX_RL_FLAGS_SEQNO_EN (0x08)
 #define MFII_RAID_CTX_RL_FLAGS_CPU0     (0x00)
 #define MFII_RAID_CTX_RL_FLAGS_CPU1     (0x10)
 #define MFII_RAID_CTX_RL_FLAGS_CUDA     (0x80)
-	uint8_t		_reserved2;
+
+#define MFII_RAID_CTX_ROUTING_FLAGS_SQN	(1 << 4)
+#define MFII_RAID_CTX_ROUTING_FLAGS_CPU0 0
+
 	uint16_t	virtual_disk_target_id;
 
 	uint64_t	reg_lock_row_lba;
